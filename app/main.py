@@ -38,6 +38,11 @@ b = 0
 ui_ls = 0.08
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# Controls
+
+mdown = False
+
+# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Mixer
 
 vol = 0.33
@@ -53,6 +58,8 @@ sfx.set_volume(vol_sfx)
 
 sfx_exit = pg.mixer.Sound(rpath('resources/ogg/_exit.ogg'))
 sfx_click = pg.mixer.Sound(rpath('resources/ogg/_click.ogg'))
+sfx_select = pg.mixer.Sound(rpath('resources/ogg/_select.ogg'))
+sfx_unselect = pg.mixer.Sound(rpath('resources/ogg/_unselect.ogg'))
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Fonts
@@ -61,6 +68,7 @@ font_retro_50 = pg.font.Font(rpath('resources/ttf/retrogaming.ttf'), 50)
 font_retro_24 = pg.font.Font(rpath('resources/ttf/retrogaming.ttf'), 24)
 font_pixel_32 = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 32)
 font_pixel_32_italic = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 32); font_pixel_32_italic.italic = True
+font_pixel_24 = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 24)
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Mode variables
@@ -135,7 +143,7 @@ class Button:
             funcThread.start()
 
 class VerticalSlider:
-    def __init__(self, x, y, height, min_value, max_value, initial_value, group=None):
+    def __init__(self, x, y, height, min_value, max_value, initial_value, group=None, func_str=None):
         self.x = x
         self.y = y
         self.height = height
@@ -145,17 +153,19 @@ class VerticalSlider:
 
         self.track_width = 5
         self.handle_width = 20
-        self.handle_height = 20
+        self.handle_height = 10
 
         self.track_color = (50, 50, 50)
         self.handle_color = (255, 255, 255)
 
-        self.handle_y = (self.height - self.handle_height) * (
-            (self.max_value - self.value) / (self.max_value - self.min_value)
-        )
+        self.handle_y = self.height - (self.height * (self.value / self.max_value))
 
         if group:
             group.add(self)
+        if not func_str:
+            print('VerticalSlider: MUST provide function code for slider upon creation')
+        else:
+            self.func_str = func_str
 
     def draw(self, win, offset=(0, 0)):
         x, y = self.x + offset[0], self.y + offset[1]
@@ -176,23 +186,35 @@ class VerticalSlider:
             ),
         )
     
-    def update(self, mouse_pos, mouse_pressed):
+    def update(self, offset=(0, 0)):
+        if not canClick:
+            return
+
+        x, y = self.x + offset[0], self.y + offset[1]
+        mpos = pg.mouse.get_pos()
+
         handle_rect = pg.Rect(
-            self.x - self.handle_width // 2,
-            self.handle_y,
-            self.handle_width,
-            self.handle_height,
-        )
-        if handle_rect.collidepoint(mouse_pos):
-            # Update the handle's position
-            self.handle_y = mouse_pos[1] - self.handle_height // 2
+                x - self.handle_width // 2,
+                y + self.handle_y,
+                self.handle_width,
+                self.handle_height,
+            )
+        if handle_rect.collidepoint(mpos):
+            def inner_update():
+                self.track_color = (100, 100, 100)
+                sfx.play(sfx_select)
+                while mdown:
+                    mpos = pg.mouse.get_pos()
+                    self.handle_y = clamp(mpos[1] - y, 0, self.height)
+                    self.value = ((self.height - self.handle_y) / self.height) * (self.max_value - self.min_value) + self.min_value
 
-            # Clamp the handle's position within the track
-            self.handle_y = max(self.y, min(self.handle_y, self.y + self.height - self.handle_height))
-
-            self.value = self.max_value - (
-                (self.handle_y - self.y) / (self.height - self.handle_height)
-            ) * (self.max_value - self.min_value)
+                    exec(self.func_str)
+                    sleep(0.005)
+                self.track_color = (50, 50, 50)
+                sfx.play(sfx_unselect)
+            
+            iu = threading.Thread(target=inner_update)
+            iu.start()
 
 class UIGroup:
     def __init__(self):
@@ -213,9 +235,12 @@ class UIGroup:
     
     def click(self):
         for i in self.d.values():
-            if i.__class__.__name__ == 'Button':
-                if i.hover:
-                    i.click()
+            match i.__class__.__name__:
+                case 'Button':
+                    if i.hover:
+                        i.click()
+                case 'VerticalSlider':
+                    i.update(self.offset)
 
     def draw(self, win):
         for i in self.d.values():
@@ -278,7 +303,11 @@ def settings_back_click():
     canClick = True
 settings_back = Button((50, 50, 50), 25, height - 75, 150, 50, font_pixel_32, 'Back', group=settings_group, func=settings_back_click)
 
-vol_slider = VerticalSlider(25, 100, 150, 0, 1, vol, group=settings_group)
+vol_slider = VerticalSlider(85, 100, 150, 0, 1, vol, group=settings_group, func_str='vol = self.value; pg.mixer_music.set_volume(vol)')
+vol_text = Label((255, 255, 255), 25, 260, font_pixel_24, 'Music Volume', group=settings_group)
+
+vol_sfx_slider = VerticalSlider(85, 300, 150, 0, 1, vol_sfx, group=settings_group, func_str='vol_sfx = self.value; sfx.set_volume(vol_sfx)')
+vol_sfx_text = Label((255, 255, 255), 35, 460, font_pixel_24, 'SFX Volume', group=settings_group)
 
 settings_header = Label((255, 255, 255), 25, 25, font_retro_50, 'Settings', group=settings_group)
 
@@ -307,12 +336,10 @@ credits_4 = Label((255, 255, 255), 25, 210, font_pixel_32_italic, 'and compiled 
 while running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
-            running = False
+            pass
+
         if event.type == pg.MOUSEBUTTONDOWN:
-            # if render != 'Game':
-            #     menu_group.click()
-            #     settings_group.click()
-            #     credits_group.click()
+            mdown = True
             match render:
                 case 'Menu':
                     menu_group.click()
@@ -320,6 +347,9 @@ while running:
                     settings_group.click()
                 case 'Credits':
                     credits_group.click()
+
+        if event.type == pg.MOUSEBUTTONUP:
+            mdown = False
 
 
     screen.fill((r, g, b))
