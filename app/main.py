@@ -79,6 +79,11 @@ render_first = {
 }
 
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
+# Misc
+
+deaths = 0
+
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Calls
 
 clock = pg.time.Clock()
@@ -303,6 +308,7 @@ def menu_quit_click():
 menu_quit = Button((100, 0, 0), 25, 400, 150, 50, font_pixel_32, 'Quit', group=menu_group, func=menu_quit_click)
 
 menu_header = Label((255, 255, 255), 25, 25, font_retro_50, 'amBi100', group=menu_group)
+menu_deaths = Label((255, 255, 255), 12, height - 30, font_pixel_24, 'Deaths: 0', group=menu_group)
 
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Settings
