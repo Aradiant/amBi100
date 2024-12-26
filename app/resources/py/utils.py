@@ -32,9 +32,9 @@ def rpath(obj):
     '''Return absolute path, given a relative path'''
     return fspath(Path(__file__).parent.parent.parent / obj)
 
-def brighten(color):
-    '''Make RGB color components 255, if above 0'''
-    return ([0, 255][bool(color[0])], [0, 255][bool(color[1])], [0, 255][bool(color[2])])
+def brighten(color, m=255):
+    '''Make RGB color components m, if above 0'''
+    return ([0, m][bool(color[0])], [0, m][bool(color[1])], [0, m][bool(color[2])])
 
 def now():
     '''Get amount of seconds since the epoch'''

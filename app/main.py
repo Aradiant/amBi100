@@ -4,7 +4,6 @@
 import pygame as pg
 import threading
 import math
-import os
 from time import sleep
 from json import dumps, loads
 
@@ -19,16 +18,17 @@ def Render(v):
     render_first[v] = True
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
-# Presets, initialization
+# Preset and init work
 
 pg.init()
+pg.mixer.init()
 
-clock, fps = pg.time.Clock(), 50
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
+# Basic
 
-pg.display.set_caption('amBi100')
-
+fps = 50
 width, height = 900, 600
-screen = pg.display.set_mode((width, height), pg.SCALED)
+
 canClick = True
 
 r = 0
@@ -37,31 +37,27 @@ b = 0
 
 ui_ls = 0.08
 
-# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Controls
 
 mdown = False
 
-# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Mixer
 
 vol = 0.33
-pg.mixer_music.load(rpath('resources/ogg/ambi100.ogg'))
-pg.mixer_music.set_volume(vol)
-pg.mixer_music.play(loops=-1)
 
 vol_sfx = 0.33
-pg.mixer.init()
 
 sfx = pg.mixer.Channel(1)
-sfx.set_volume(vol_sfx)
 
 sfx_exit = pg.mixer.Sound(rpath('resources/ogg/_exit.ogg'))
 sfx_click = pg.mixer.Sound(rpath('resources/ogg/_click.ogg'))
 sfx_select = pg.mixer.Sound(rpath('resources/ogg/_select.ogg'))
 sfx_unselect = pg.mixer.Sound(rpath('resources/ogg/_unselect.ogg'))
+sfx_forbid = pg.mixer.Sound(rpath('resources/ogg/_forbid.ogg'))
 
-# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Fonts
 
 font_retro_50 = pg.font.Font(rpath('resources/ttf/retrogaming.ttf'), 50)
@@ -70,7 +66,7 @@ font_pixel_32 = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 32)
 font_pixel_32_italic = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 32); font_pixel_32_italic.italic = True
 font_pixel_24 = pg.font.Font(rpath('resources/ttf/pixeloperator.ttf'), 24)
 
-# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Mode variables
 
 running = True
@@ -78,8 +74,23 @@ running = True
 render = 'Menu'
 render_first = {
     'Menu': True,
-    'Settings': True
+    'Settings': True,
+    'Credits': True
 }
+
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
+# Calls
+
+clock = pg.time.Clock()
+
+pg.display.set_caption('amBi100')
+screen = pg.display.set_mode((width, height), pg.SCALED)
+
+pg.mixer_music.set_volume(vol)
+pg.mixer_music.load(rpath('resources/ogg/ambi100.ogg'))
+pg.mixer_music.play(loops=-1)
+
+sfx.set_volume(vol_sfx)
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # UI classes
@@ -122,6 +133,8 @@ class Button:
     def draw(self, win, offset=(0, 0)):
         x, y = self.x + offset[0], self.y + offset[1]
         pg.draw.rect(win, [self.color, brighten(self.color)][self.hover], (x - 2, y - 2, self.width + 4, self.height + 4), [4, 0][self.hover])
+        if self.hover:
+            pg.draw.rect(win, brighten(self.color, m=225), (x - 2, y - 2, self.width + 4, self.height + 4), 4)
         
         if self.text != '':
             text = self.font.render(self.text, 1, [(255, 255, 255), (0, 0, 0)][self.hover])
@@ -152,7 +165,7 @@ class VerticalSlider:
         self.value = initial_value
 
         self.track_width = 5
-        self.handle_width = 20
+        self.handle_width = 50
         self.handle_height = 10
 
         self.track_color = (50, 50, 50)
@@ -176,7 +189,7 @@ class VerticalSlider:
         )
 
         pg.draw.rect(
-            screen,
+            win,
             self.handle_color,
             (
                 x - self.handle_width // 2,
@@ -205,8 +218,8 @@ class VerticalSlider:
                 sfx.play(sfx_select)
                 while mdown:
                     mpos = pg.mouse.get_pos()
-                    self.handle_y = clamp(mpos[1] - y, 0, self.height)
-                    self.value = ((self.height - self.handle_y) / self.height) * (self.max_value - self.min_value) + self.min_value
+                    self.handle_y = clamp(mpos[1] - y, 0, self.height - self.handle_height)
+                    self.value = ((self.height - self.handle_y) / (self.height - self.handle_height)) * (self.max_value - self.min_value) + self.min_value
 
                     exec(self.func_str)
                     sleep(0.005)
@@ -251,7 +264,8 @@ class UIGroup:
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Create instances
-            
+
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Menu
 
 menu_group = UIGroup()
@@ -279,7 +293,7 @@ menu_credits = Button((50, 50, 50), 25, 325, 150, 50, font_pixel_32, 'Credits', 
 def menu_quit_click():
     global running, canClick, fps
     canClick = False
-    fps = 1 / 3
+    fps = 1 / 2.75
 
     pg.mixer_music.fadeout(333)
     sfx.play(sfx_exit)
@@ -290,6 +304,7 @@ menu_quit = Button((100, 0, 0), 25, 400, 150, 50, font_pixel_32, 'Quit', group=m
 
 menu_header = Label((255, 255, 255), 25, 25, font_retro_50, 'amBi100', group=menu_group)
 
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Settings
 
 settings_group = UIGroup()
@@ -311,6 +326,7 @@ vol_sfx_text = Label((255, 255, 255), 35, 460, font_pixel_24, 'SFX Volume', grou
 
 settings_header = Label((255, 255, 255), 25, 25, font_retro_50, 'Settings', group=settings_group)
 
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Credits
 
 credits_group = UIGroup()
@@ -336,7 +352,7 @@ credits_4 = Label((255, 255, 255), 25, 210, font_pixel_32_italic, 'and compiled 
 while running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
-            pass
+            sfx.play(sfx_forbid)
 
         if event.type == pg.MOUSEBUTTONDOWN:
             mdown = True
