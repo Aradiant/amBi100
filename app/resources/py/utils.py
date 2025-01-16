@@ -30,7 +30,7 @@ def lerp(x, dest, scale: float, isFloat=True, easing='linear'):
 
 def rpath(obj):
     '''Return absolute path, given a relative path'''
-    return fspath(Path(__file__).parent.parent.parent / obj)
+    return fspath(Path(__file__).parent.parent.parent / obj).replace('\\', '/')
 
 def brighten(color, m=255):
     '''Make RGB color components m, if above 0'''
@@ -39,3 +39,18 @@ def brighten(color, m=255):
 def now():
     '''Get amount of seconds since the epoch'''
     return time()
+
+def frames_to_time(frames, fps=50):
+    '''Return formatted time from given frames'''
+    h = frames // (3600*fps)
+    m = frames // (60*fps) % 60
+    s = frames // fps % 60
+    ms = int(frames % fps / fps * 1000)
+
+    h, m, s, ms = str(h).rjust(2, '0'), str(m).rjust(2, '0'), str(s).rjust(2, '0'), str(ms).rjust(3, '0')
+
+    return f'{["", h + ":"][bool(int(h))]}' + f'{m}:{s}.{ms}'
+
+def file_name(path):
+    '''Extract file name from path'''
+    return path.split('/')[::-1][0]
