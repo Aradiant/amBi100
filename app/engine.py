@@ -36,6 +36,8 @@ map_title = ''
 level_end_char = ''
 level_end_state = ''
 
+level_finished = False
+
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Player stats
 
@@ -44,6 +46,7 @@ plr = None
 plr_mv_walk = 2
 plr_mv = 4
 plr_mv_loss = 1.5
+plr_max_yvel = 10
 plr_sx = 0
 plr_sy = 0
 
@@ -152,10 +155,13 @@ class Player(AnimatedSprite):
     def __init__(self, x, y):
         super().__init__(entities, {
             'idle': ['resources/png/char_idle.png', 1, 2, 50],
+            'win': ['resources/png/char_win.png', 1, 1, 0],
             'move_slow': ['resources/png/char_move.png', 1, 4, 10],
             'move': ['resources/png/char_move_fast.png', 1, 4, 6],
             'fall': ['resources/png/char_fall.png', 1, 2, 11],
-            'fall_side': ['resources/png/char_fall_side.png', 1, 2, 11]
+            'fall_side': ['resources/png/char_fall_side.png', 1, 2, 11],
+            'jump': ['resources/png/char_jump.png', 1, 2, 11],
+            'jump_side': ['resources/png/char_jump_side.png', 1, 2, 11]
             })
         self.state = 'idle'
         self.animate()
@@ -180,6 +186,10 @@ class Player(AnimatedSprite):
         self.air_last = 0
     
     def change_state(self, s):
+        if s in 'win':
+            self.state = s
+            self.air_last = 0
+
         if self.air_last and s != 'air':
             self.air_last -= 1
             return
@@ -202,9 +212,9 @@ class Player(AnimatedSprite):
             time_required = getattr(self, self.state + '_time')
         else:
             # If in air
-            air_state_name = 'fall'
-            if self.xvel != 0:
-                air_state_name += '_side'
+            air_state_name = ['fall', 'jump'][self.yvel <= 0]
+            # if self.xvel != 0:
+                # air_state_name += '_side'
             frames = getattr(self, air_state_name + '_frames')
             time_required = getattr(self, air_state_name + '_time')
         self.image = frames[self.frame_counter]
@@ -215,7 +225,7 @@ class Player(AnimatedSprite):
         self.frame_counter = (self.frame_counter + 1) % len(frames)
     
     def check_collision(self, mode):
-        global can_double_jump, plr_sx, plr_sy, last_checkpoint
+        global can_double_jump, plr_sx, plr_sy, last_checkpoint, level_finished
 
         # Check platforms
         c_sprites = pg.sprite.spritecollide(sprite=self, group=objects, dokill=0)
@@ -284,16 +294,17 @@ class Player(AnimatedSprite):
             if e_sprite.__class__.__name__ == 'Checkpoint' and last_checkpoint != e_sprite.rect:
                 last_checkpoint = e_sprite.rect
                 plr_sx, plr_sy = e_sprite.rect.x + 4, e_sprite.rect.y - 10
-                sfx_aux.play(sfx_checkpoint)
+                sfx_e.play(sfx_e_s_pos)
+
+                def p():
+                    sleep(1/5)
+                    sfx_aux.play(sfx_checkpoint)
+                pt = threading.Thread(target=p)
+                pt.start()
+
             elif e_sprite.__class__.__name__ == 'LevelEnd':
-                set_main_variable('level_frames_taken', frames_taken)
-                set_main_variable('level_title', map_title)
-                # Level deaths are appended upon death
-
-                set_main_variable('game_just_finished', True)
-
-                set_main_variable('render', level_end_state)
-                set_main_variable('canClick', True)
+                self.change_state('win')
+                level_finished = True
 
     def update(self, keys):
         global jump_let_go, restart_let_go, can_double_jump, dead
@@ -374,7 +385,7 @@ class Player(AnimatedSprite):
         # End
         
         if self.ground_tick < self.max_ground_tick:
-            self.yvel += gravity
+            self.yvel = min(self.yvel + gravity, plr_max_yvel)
         self.ground_tick = max(self.ground_tick - 1, 0)
 
         # Air animation if ground tick is 0
@@ -445,7 +456,13 @@ class Text:
 def die():
     global dead
     dead = True
-    sfx_aux.play(sfx_die)
+    sfx_e.play(sfx_e_neg)
+
+    def p():
+        sleep(1/6)
+        sfx_aux.play(sfx_die)
+    pt = threading.Thread(target=p)
+    pt.start()
 
     set_main_variable('r', 25)
 
@@ -456,6 +473,11 @@ def die():
 def restart():
     global plr, map_path, dead
 
+    if not dead:
+        sfx_e.play(sfx_e_s_neg)
+    else:
+        sfx_e.play(sfx_e_m_neg)
+
     dead = False
     load_map(map_path, soft=True)
 
@@ -463,10 +485,6 @@ def restart():
     plr.rect.y = plr_sy
     plr.xvel = 0
     plr.yvel = 0
-
-    # Counter
-    set_main_variable('deaths', get_main_variable('deaths') + 1)
-    set_main_variable('level_deaths', get_main_variable('level_deaths') + 1)
 
 def get_rect_mask_dimensions(mask, only_size=False):
     mask_w, mask_h = 0, 0
@@ -592,10 +610,12 @@ def init(path):
     # Debug
     print('Loading map: ' + file_name(path))
     # End
-    global plr, map_path, first_update
+    global plr, map_path, first_update, level_finished, frames_taken
     map_path = path
 
     # Clean up first
+    level_finished = False
+    frames_taken = 0
     entities.empty()
     objects.empty()
 
@@ -607,7 +627,23 @@ def init(path):
     first_update = True
 
 def update():
-    global plr, first_update, frames_taken
+    global plr, first_update
+    global frames_taken, map_title, level_end_state, level_finished
+
+    if level_finished:
+        sfx_e.play(sfx_e_pos)
+        music.fadeout(500)
+        sleep(2)
+
+        set_main_variable('level_frames_taken', frames_taken)
+        set_main_variable('level_title', map_title)
+        # Level deaths are appended upon death
+
+        set_main_variable('game_just_finished', True)
+
+        set_main_variable('render', level_end_state)
+        set_main_variable('canClick', True)
+
     keys = pg.key.get_pressed()
 
     plr.update(keys)

@@ -125,6 +125,7 @@ music.play(rpath('resources/ogg/ambi100.ogg'))
 sfx.set_volume(vol_sfx)
 sfx_aux.set_volume(vol_sfx)
 sfx_obj.set_volume(vol_sfx)
+sfx_e.set_volume(vol_sfx)
 
 engine.essential_init()
 
@@ -372,7 +373,7 @@ settings_back = Button((50, 50, 50), 25, height - 75, 150, 50, font_pixel_32, 'B
 vol_slider = VerticalSlider(85, 100, 150, 0, 1, vol, group=settings_group, func_str='vol = self.value; pg.mixer_music.set_volume(vol)')
 vol_text = Label((255, 255, 255), 25, 260, font_pixel_24, 'Music Volume', group=settings_group)
 
-vol_sfx_slider = VerticalSlider(85, 300, 150, 0, 1, vol_sfx, group=settings_group, func_str='vol_sfx = self.value; sfx.set_volume(vol_sfx); sfx_aux.set_volume(vol_sfx); sfx_obj.set_volume(vol_sfx)')
+vol_sfx_slider = VerticalSlider(85, 300, 150, 0, 1, vol_sfx, group=settings_group, func_str='vol_sfx = self.value; sfx.set_volume(vol_sfx); sfx_aux.set_volume(vol_sfx); sfx_obj.set_volume(vol_sfx); sfx_e.set_volume(vol_sfx)')
 vol_sfx_text = Label((255, 255, 255), 35, 460, font_pixel_24, 'SFX Volume', group=settings_group)
 
 settings_header = Label((255, 255, 255), 25, 25, font_retro_50, 'Settings', group=settings_group)
@@ -416,7 +417,7 @@ finish_group.offset = (0, -height)
 finish_header = Label((255, 255, 255), 25, 25, font_retro_36, 'Level completed!', group=finish_group)
 finish_title = Label((255, 255, 255), 25, 75, font_pixel_24, 'Title: Level Title', group=finish_group)
 finish_deaths = Label((255, 255, 255), 25, 105, font_pixel_24, 'Deaths: 0', group=finish_group)
-finish_time = Label((255, 255, 255), 25, 135, font_pixel_24, 'Time taken: 00:00', group=finish_group)
+finish_time = Label((255, 255, 255), 25, 135, font_pixel_24, 'Time taken: 00:00.000', group=finish_group)
 
 def finish_back_click():
     global canClick, render

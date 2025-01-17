@@ -54,3 +54,18 @@ def frames_to_time(frames, fps=50):
 def file_name(path):
     '''Extract file name from path'''
     return path.split('/')[::-1][0]
+
+def extract_map_title(path):
+    '''Extract the map\'s title, without loading it'''
+    with open(path, 'r', encoding='utf-8') as f:
+        data = f.readlines()
+        for d in data:
+            index = d.find('title')
+            if index != -1:
+                sd = d.split('=')
+                use_next = False
+                for e in sd:
+                    if use_next:
+                        return e.strip().replace(e.strip()[0], '')
+                    if 'title' in e:
+                        use_next = True
