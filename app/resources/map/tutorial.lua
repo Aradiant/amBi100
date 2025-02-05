@@ -10,6 +10,7 @@ level_end = "('+', 'Finish')"
 
 title = 'Tutorial'
 track = 'resources/ogg/ambi254.ogg'
+max_jump_tick = 46
 
 data['o'] = {tile = 'st-border', class = 'Platform'}
 data['-'] = {tile = 'st-bridge', class = 'Platform'}
@@ -33,9 +34,10 @@ data['2'] = {class = 'Text', text = 'Use arrow keys to perform horizontal moveme
 data['3'] = {class = 'Text', text = 'Press S to perform a jump.', font = 'font_pixel_16', color = text_color}
 data['4'] = {class = 'Text', text = 'Holding S results in a higher jump.', font = 'font_pixel_16', color = text_color}
 data['5'] = {class = 'Text', text = 'Press S while airborne to perform a double jump.', font = 'font_pixel_16', color = text_color}
+data['{'] = {class = 'Text', text = 'Avoid wall hugging while doing precise jumps.', font = 'font_pixel_14', color = u_text_color, oy = -15}
 data['6'] = {class = 'Text', text = 'This is a checkpoint.', font = 'font_pixel_16_bold', color = h_text_color}
 data['7'] = {class = 'Text', text = 'You can guess what happens', font = 'font_pixel_16', color = text_color}
-data['8'] = {class = 'Text', text = 'if you fall down.', font = 'font_pixel_16', color = text_color}
+data['8'] = {class = 'Text', text = 'if you fall down.', font = 'font_pixel_16', color = text_color, oy = -15}
 data['9'] = {class = 'Text', text = 'Press R to reset.', font = 'font_pixel_16', color = text_color}
 data['0'] = {class = 'Text', text = 'Memorize traps.', font = 'font_pixel_16', color = text_color}
 data['&'] = {class = 'Text', text = 'Hold A to walk.', font = 'font_pixel_16', color = text_color}
@@ -44,7 +46,7 @@ data['Z'] = {class = 'Text', text = 'Use it to get as much advantage as possible
 data['.'] = {class = 'Text', text = 'And remember:', font = 'font_pixel_16', color = text_color}
 data['~'] = {class = 'Text', text = 'This isn\'t everything you\'ll see later.', font = 'font_pixel_16_bold', color = h_text_color}
 data['G'] = {class = 'Text', text = 'Good luck.', font = 'font_pixel_16_bold', color = h_text_color}
-data['}'] = {class = 'Text', text = 'If you ever want to return to the menu from a level, use the \'\'Close window\'\' button.', font = 'font_pixel_8', color = u_text_color, oy = -15}
+data['}'] = {class = 'Text', text = 'If want to close a level, use the \'\'Close window\'\' button.', font = 'font_pixel_14', color = u_text_color, oy = -15}
 
 map = [[
 ############################################################
@@ -65,7 +67,7 @@ map = [[
 ##                                                    ##  ##
 ##                                                    ##  ##
 ##                                            5       ##  ##
-##                                4                   ##  ##
+##                                4           {       ##  ##
 ##                       3             #################  ##
 ##           @                         #################  ##
 ##                            ########################    ##
@@ -106,9 +108,9 @@ map = [[
 ##                                                      ####
 ##b                         .             z             ####
 ##bb           G            ~             Z           bb####
-##bbbb                                              bbbb####
+##bbbb         }                                    bbbb####
 #########----------------------------------------###########
-#########      }                                 ###########
+#########                                        ###########
 #########                                        ###########
 #########                                        ###########
 #########                                        ###########

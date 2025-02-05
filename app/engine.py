@@ -50,10 +50,14 @@ plr_max_yvel = 10
 plr_sx = 0
 plr_sy = 0
 
+read_only_plr_x = 0
+read_only_plr_y = 0
+
 plr_w, plr_h = 21, 40
 
 gravity = 0.35
-jump = 8
+jump = 4
+plr_max_jump_tick = 45
 
 can_double_jump = True
 jump_let_go = True
@@ -68,6 +72,8 @@ frames_taken = 0
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Misc
 
+custom_actions = []
+
 first_update = True
 
 st = None
@@ -75,7 +81,16 @@ st_atlas = None
 
 objects = pg.sprite.Group()
 entities = pg.sprite.Group()
+particles = pg.sprite.Group()
 misc = []
+
+main_is_zoomed = True
+
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
+# Other stuff
+
+eng_cur_fps = 50  # Obtained from main
+eng_fps = 50  # Obtained from main
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Low-level functions
@@ -112,6 +127,8 @@ class AnimatedSprite(pg.sprite.Sprite):
         Note that this class is used a shell for other classes, therefore it does not have coordinate initialization.
         Rect initialization should also be done inside the class that inherits this one.
         '''
+        self._d = dict
+
         self.frame_counter = 0
         self.frame_wait = 0
 
@@ -154,7 +171,7 @@ class AnimatedSprite(pg.sprite.Sprite):
 class Player(AnimatedSprite):
     def __init__(self, x, y):
         super().__init__(entities, {
-            'idle': ['resources/png/char_idle.png', 1, 2, 50],
+            'idle': ['resources/png/char_idle.png', 1, 2, 40],
             'win': ['resources/png/char_win.png', 1, 1, 0],
             'move_slow': ['resources/png/char_move.png', 1, 4, 10],
             'move': ['resources/png/char_move_fast.png', 1, 4, 6],
@@ -178,10 +195,10 @@ class Player(AnimatedSprite):
 
         self.rect = pg.Rect(x, y, plr_w, plr_h)
 
-        self.ground_tick = 0
         self.max_ground_tick = 4
+        self.ground_tick = self.max_ground_tick
         self.jump_tick = 0
-        self.max_jump_tick = 50
+        self.max_jump_tick = plr_max_jump_tick
 
         self.air_last = 0
     
@@ -201,7 +218,8 @@ class Player(AnimatedSprite):
         self.last_state = s
 
         if s == 'air':
-            self.air_last = 2
+            # self.air_last - maximum
+            self.air_last = 1
 
     def animate(self):
         frames = ''
@@ -259,6 +277,12 @@ class Player(AnimatedSprite):
                 if c_sprite_mask.overlap(self.custom_mask_precise, 
                                          offset=(self.rect.x - c_sprite.rect.x , self.rect.y - c_sprite.rect.y)):
                     call_hit_action()
+                    p_die_img = load_image(rpath('resources/png/char_die.png'))
+                    if self.flipped:
+                        p_die_img = pg.transform.flip(p_die_img, 1, 0)
+                    Particle((plr.rect.x, plr.rect.y), self.xvel / 3, -jump, p_die_img)
+                    plr.rect.x = plr_sx
+                    plr.rect.y = plr_sy
                     die()
                 continue
 
@@ -278,6 +302,7 @@ class Player(AnimatedSprite):
                         # Landing
                         self.rect.bottom = c_sprite.rect.top + cs_y
                         self.ground_tick = self.max_ground_tick
+                        self.air_last = 0
                         self.yvel = 0
 
                         can_double_jump = True
@@ -297,10 +322,15 @@ class Player(AnimatedSprite):
                 sfx_e.play(sfx_e_s_pos)
 
                 def p():
-                    sleep(1/5)
+                    sleep(1 / 4.5)
                     sfx_aux.play(sfx_checkpoint)
                 pt = threading.Thread(target=p)
                 pt.start()
+            
+            if e_sprite.__class__.__name__ == 'JumpRestore': # and not can_double_jump:
+                if e_sprite.enabled:
+                    e_sprite.deactivate()
+                    can_double_jump = True
 
             elif e_sprite.__class__.__name__ == 'LevelEnd':
                 self.change_state('win')
@@ -308,6 +338,8 @@ class Player(AnimatedSprite):
 
     def update(self, keys):
         global jump_let_go, restart_let_go, can_double_jump, dead
+        global eng_cur_fps, eng_fps
+        global read_only_plr_x, read_only_plr_y
 
         self.image.set_alpha(255 * (not dead))
 
@@ -333,13 +365,18 @@ class Player(AnimatedSprite):
 
             if keys[pg.K_s]:
                 
+                # Jumping
                 # Jump height is bound to how long the jump key is held
                 def jump_held():
                     self.jump_tick = 0
                     while not jump_let_go and self.jump_tick < self.max_jump_tick:
-                        self.yvel = -jump / 1.75
+                        self.yvel = -jump
                         self.jump_tick += 1
-                        sleep(1 / 333)
+                        # accurate_delay(3)
+                        # print('Jump tick: ' + str(self.jump_tick))
+                        lower_eng_cur_fps = max(eng_fps - 2, 1)
+                        k = (1 / eng_cur_fps) - (1 / lower_eng_cur_fps)
+                        accurate_delay(3 / [0.97, 1.03][main_is_zoomed] + math.copysign(abs(k), k) / 4.33)
                 
                 # Perform a normal jump
                 if self.ground_tick and jump_let_go:
@@ -397,10 +434,15 @@ class Player(AnimatedSprite):
         self.rect.y += self.yvel
         self.check_collision(1)
 
+        read_only_plr_x = self.rect.x
+        read_only_plr_y = self.rect.y
+
 class Platform(pg.sprite.Sprite):
-    def __init__(self, x, y, surface, **kwargs):
+    def __init__(self, x, y, surface, surface_name, **kwargs):
         super().__init__(objects)
         self.image = surface
+        self.image_name = surface_name
+        self.x, self.y = x, y
         self.rect = pg.Rect(x, y, plat_w, plat_h)
 
         for k, v in kwargs.items():
@@ -414,6 +456,8 @@ class Platform(pg.sprite.Sprite):
             exec_t = threading.Thread(target=exec_action)
             exec_t.start()
 
+            custom_actions.append(exec_t)
+
 class Checkpoint(AnimatedSprite):
     def __init__(self, x, y):
         super().__init__(entities, {
@@ -422,6 +466,27 @@ class Checkpoint(AnimatedSprite):
         self.state = 'default'
         self.animate()
         self.rect = pg.Rect(x, y, plat_w, plat_h)
+
+class JumpRestore(AnimatedSprite):
+    def __init__(self, x, y):
+        super().__init__(entities, {
+            'default': ['resources/png/dj.png', 1, 8, 2]
+        })
+        self.state = 'default'
+        self.enabled = True
+        self.animate()
+        self.rect = pg.Rect(x, y, plat_w, plat_h)
+    
+    def deactivate(self):
+        if self.enabled:
+            self.enabled = False
+
+            def p():
+                sleep(3)
+                self.enabled = True
+                # sfx_aux.play(sfx_checkpoint)
+            pt = threading.Thread(target=p)
+            pt.start()
 
 class LevelEnd(AnimatedSprite):
     def __init__(self, x, y):
@@ -450,6 +515,23 @@ class Text:
             text = self.font.render(self.text, 1, self.color)
             win.blit(text, (self.ox + self.x + plat_w // 2 - text.get_width() / 2 + offset[0], self.oy + self.y + plat_h // 2 - text.get_height() / 2 + offset[1]))
 
+class Particle(pg.sprite.Sprite):
+    def __init__(self, pos, dx, dy, surface, p_gravity=gravity):
+        super().__init__(particles)
+        self.image = surface
+        self.rect = self.image.get_rect()
+
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+
+        self.gravity = p_gravity
+
+    def update(self):
+        self.velocity[1] += self.gravity
+
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Functions
             
@@ -457,12 +539,7 @@ def die():
     global dead
     dead = True
     sfx_e.play(sfx_e_neg)
-
-    def p():
-        sleep(1/6)
-        sfx_aux.play(sfx_die)
-    pt = threading.Thread(target=p)
-    pt.start()
+    sfx_aux.play(sfx_die)
 
     set_main_variable('r', 25)
 
@@ -478,13 +555,23 @@ def restart():
     else:
         sfx_e.play(sfx_e_m_neg)
 
-    dead = False
-    load_map(map_path, soft=True)
+    for i in custom_actions:
+        if i.is_alive():
+            i.join(timeout=0)
+    sleep(0.1)
+    custom_actions.clear()
 
-    plr.rect.x = plr_sx
-    plr.rect.y = plr_sy
-    plr.xvel = 0
-    plr.yvel = 0
+    load_map(map_path, soft=True)
+    
+    if plr:
+        plr.kill()
+    
+    plr = Player(plr_sx, plr_sy)
+    plr.ground_tick = plr.max_ground_tick * 1.5
+
+    particles.empty()
+
+    dead = False
 
 def get_rect_mask_dimensions(mask, only_size=False):
     mask_w, mask_h = 0, 0
@@ -518,9 +605,10 @@ def load_image(path, alpha=True):
     return image
         
 def load_map(path, soft=False):
-    global plr_char, data, map_data, nothing_char, plr_sx, plr_sy, map_track, plr, level_end_char, level_end_state, map_title
+    global plr_char, data, map_data, nothing_char, plr_sx, plr_sy, map_track, plr, level_end_char, level_end_state, map_title, plr_max_jump_tick
 
     if soft:
+        misc.clear()
         entities.empty()
         objects.empty()
 
@@ -532,15 +620,16 @@ def load_map(path, soft=False):
     local track = ''
     local level_end = ''
     local title = ''
+    local max_jump_tick = ''
     '''
 
     with open(path, 'r') as f:
         base_lua += f.read()
     base_lua += '''
-    return plr, data, map, nothing, track, level_end, title
+    return plr, data, map, nothing, track, level_end, title, max_jump_tick
     '''
 
-    plr_char, data, map_data, nothing_char, map_track, level_end, map_title = lua.execute(base_lua)
+    plr_char, data, map_data, nothing_char, map_track, level_end, map_title, plr_max_jump_tick = lua.execute(base_lua)
     level_end = eval(level_end)
     level_end_char, level_end_state = level_end[0], level_end[1]
 
@@ -581,7 +670,7 @@ def load_map(path, soft=False):
                         if k in ['class', 'tile']:
                             continue
                         kwargs_string += str(k) + '=' + str(v) + ', '
-                    eval(f'{tile_class}(x, y, st.subsurface(pg.Rect({st_atlas[tile_data["tile"]][0]}, {st_atlas[tile_data["tile"]][1]}, plat_w, plat_h)), {kwargs_string})')
+                    eval(f'{tile_class}(x, y, st.subsurface(pg.Rect({st_atlas[tile_data["tile"]][0]}, {st_atlas[tile_data["tile"]][1]}, plat_w, plat_h)), "{tile_data["tile"]}", {kwargs_string})')
                 case 'Text':
                     kwargs_string = ''
                     for k, v in tile_data.items():
@@ -590,6 +679,8 @@ def load_map(path, soft=False):
                         kwargs_string += str(k) + '=' + str(v) + ', '
                     eval(f'{tile_class}(x, y, "{tile_data["text"]}", {tile_data["font"]}, {tile_data["color"]}, {kwargs_string})')
                 case 'Checkpoint':
+                    eval(f'{tile_class}(x, y)')
+                case 'JumpRestore':
                     eval(f'{tile_class}(x, y)')
 
             x += plat_w
@@ -610,25 +701,36 @@ def init(path):
     # Debug
     print('Loading map: ' + file_name(path))
     # End
-    global plr, map_path, first_update, level_finished, frames_taken
+    global plr, map_path, first_update, level_finished, frames_taken, dead
     map_path = path
 
     # Clean up first
+    for i in custom_actions:
+        if i.is_alive():
+            i.join(timeout=0)
+    sleep(0.1)
+    custom_actions.clear()
+
+    dead = False
     level_finished = False
     frames_taken = 0
     entities.empty()
     objects.empty()
+    misc.clear()
 
     set_main_variable('level_deaths', 0)
 
     load_map(path)
     plr = Player(plr_sx, plr_sy)
+    plr.ground_tick = plr.max_ground_tick * 1.5
 
     first_update = True
 
 def update():
     global plr, first_update
     global frames_taken, map_title, level_end_state, level_finished
+    global eng_cur_fps, eng_fps
+    global main_is_zoomed
 
     if level_finished:
         sfx_e.play(sfx_e_pos)
@@ -654,22 +756,41 @@ def update():
     
     frames_taken += 1
 
+    # Update other stuff
+    eng_cur_fps = get_main_variable('cur_fps')
+    eng_fps = get_main_variable('fps')
+    main_is_zoomed = get_main_variable('zoomed')
+
+o_x, o_y = 0, 0
 def render(win):
+    global o_x, o_y
+
     # calculate center
-    o_x, o_y = width // 2 - plr.rect.x - plr_w // 2, height // 2 - plr.rect.y - plr_h // 2
+    if not dead:
+        o_x, o_y = width // 2 - plr.rect.x - plr_w // 2, height // 2 - plr.rect.y - plr_h // 2
 
     for m in misc:
         m.draw(win, offset=(o_x, o_y))
     for obj in objects:
         win.blit(obj.image, (obj.rect.x + o_x, obj.rect.y + o_y))
-    for e in entities:
-        if e.__class__.__name__ == 'Player': # Don't animate player if dead
-            if dead:
-                continue
 
+    for e in entities:
         if isinstance(e, AnimatedSprite):
             e.animate()
             if hasattr(e, 'flipped'):
                 if e.flipped:
                     e.image = pg.transform.flip(e.image, 1, 0)
+            if hasattr(e, 'enabled'):
+                if not e.enabled:
+                    e.image.set_alpha(0)
+                elif e.enabled and e.image.get_alpha() == 0:
+                    e.image.set_alpha(255)
+        
+        if e.__class__.__name__ == 'Player': # Don't animate player if dead
+            if dead:
+                continue
+
         win.blit(e.image, (e.rect.x + o_x, e.rect.y + o_y))
+    particles.update()
+    for p in particles:
+        win.blit(p.image, (p.rect.x + o_x, p.rect.y + o_y))

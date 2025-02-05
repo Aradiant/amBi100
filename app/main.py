@@ -3,6 +3,7 @@
 
 import pygame as pg
 import threading
+import os
 
 from time import sleep
 
@@ -25,6 +26,11 @@ pg.init()
 pg.mixer.init()
 
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
+# Paths
+
+path_userdata = rpath('userdata/save.dat')
+
+# - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Post-init imports
 
 import engine
@@ -33,6 +39,10 @@ import engine
 # Basic
 
 fps = 50
+cur_fps = 50
+
+TEST_ONLY_fps_decrease = 0
+
 width, height = 900, 600
 
 canClick = True
@@ -45,6 +55,8 @@ g_lg = 0
 b_lg = 0
 
 ui_ls = 0.08
+
+main_level_count = 10
 
 # - — - — - — - — - — - — - — - — - - — - — - — - — - — - — - —
 # Controls
@@ -130,6 +142,33 @@ sfx_e.set_volume(vol_sfx)
 engine.essential_init()
 
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# Load userdata / Set default
+
+userdatafile = os.path.exists(path_userdata)
+if not userdatafile:
+    with open(path_userdata, 'w') as f:
+        f.write(
+            dumps(
+                {
+                    'deaths': 0,
+                    'vol': vol,
+                    'vol_sfx': vol_sfx
+                }
+            )
+        )
+
+userdata = ''
+with open(path_userdata, 'r') as f:
+    userdata = f.read()
+userdata = loads(userdata)
+
+# Set variables
+
+deaths = userdata['deaths']
+vol = userdata['vol']
+vol_sfx = userdata['vol_sfx']
+
+# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # UI classes
 
 class Label:
@@ -149,7 +188,7 @@ class Label:
             win.blit(text, (self.x + offset[0], self.y + offset[1]))
 
 class Button:
-    def __init__(self, color, x, y, width, height, font, text='', group=None, func=None):
+    def __init__(self, color, x, y, width, height, font, text='', group=None, func=None, **kwargs):
         self.color = color
         self.x = x
         self.y = y
@@ -159,6 +198,8 @@ class Button:
         self.font = font
 
         self.hover = False
+
+        self.extra = kwargs
 
         if group:
             group.add(self)
@@ -370,10 +411,10 @@ def settings_back_click():
     canClick = True
 settings_back = Button((50, 50, 50), 25, height - 75, 150, 50, font_pixel_32, 'Back', group=settings_group, func=settings_back_click)
 
-vol_slider = VerticalSlider(85, 100, 150, 0, 1, vol, group=settings_group, func_str='vol = self.value; pg.mixer_music.set_volume(vol)')
+vol_slider = VerticalSlider(85, 100, 150, 0, 1, vol, group=settings_group, func_str='global vol; vol = self.value; pg.mixer_music.set_volume(vol)')
 vol_text = Label((255, 255, 255), 25, 260, font_pixel_24, 'Music Volume', group=settings_group)
 
-vol_sfx_slider = VerticalSlider(85, 300, 150, 0, 1, vol_sfx, group=settings_group, func_str='vol_sfx = self.value; sfx.set_volume(vol_sfx); sfx_aux.set_volume(vol_sfx); sfx_obj.set_volume(vol_sfx); sfx_e.set_volume(vol_sfx)')
+vol_sfx_slider = VerticalSlider(85, 300, 150, 0, 1, vol_sfx, group=settings_group, func_str='global vol_sfx; vol_sfx = self.value; sfx.set_volume(vol_sfx); sfx_aux.set_volume(vol_sfx); sfx_obj.set_volume(vol_sfx); sfx_e.set_volume(vol_sfx)')
 vol_sfx_text = Label((255, 255, 255), 35, 460, font_pixel_24, 'SFX Volume', group=settings_group)
 
 settings_header = Label((255, 255, 255), 25, 25, font_retro_50, 'Settings', group=settings_group)
@@ -444,6 +485,31 @@ def selector_back_click():
     canClick = True
 selector_back = Button((50, 50, 50), 25, height - 75, 150, 50, font_pixel_32, 'Back', group=selector_group, func=selector_back_click)
 
+_grid_width = 5
+lbs = []
+for _i in range(0, main_level_count):
+    i = _i + 1
+    base_path = rpath('resources/map')
+    base_path += '/' + str(i) + '.lua'
+    if os.path.exists(base_path):
+        def new_button_func(a=base_path):
+            # Level load
+            global canClick, render
+            canClick = False
+            engine.init(a)
+            Render('HideMenu')
+            music.fadeout(500)
+            sleep(1)
+            Render('Game')
+        lbs.append(
+            Button((100, 100, 100),
+                   110 + width // 2 + (width // _grid_width - 10) * (i - math.ceil(_grid_width / 2)),
+                   -100 + height // 2, 75, 75, font_retro_24,
+                   str(i),
+                   group=selector_group,
+                   func=new_button_func)
+        )
+
 # -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
 # Stuff that hasn't been caught up
 
@@ -460,6 +526,8 @@ while running:
                 render = 'Menu'
                 canClick = True
                 sfx.play(sfx_uiback)
+
+                update_deaths()
             else:
                 sfx.play(sfx_forbid)
 
@@ -545,6 +613,8 @@ while running:
             finish_group.offset = (0, lerp(finish_group.offset[1], 0, ui_ls * 0.38, easing='ease_out'))
 
             menu_group.offset = (lerp(menu_group.offset[0], -width, ui_ls * 2, easing='ease_in'), 0)
+
+            selector_group.offset = (0, lerp(selector_group.offset[1], -height, ui_ls * 100, easing='ease_in'))
         
         case 'Selector':
             if render_first[render]:
@@ -554,7 +624,7 @@ while running:
 
             selector_group.offset = (0, lerp(selector_group.offset[1], 0, ui_ls))
 
-            menu_group.offset = (lerp(menu_group.offset[0], -width, ui_ls * 2, easing='ease_in'), 0)
+            menu_group.offset = (lerp(menu_group.offset[0], -width, 1, easing='ease_in'), 0)
 
     if render != 'Game':
         menu_group.draw(screen)
@@ -579,7 +649,29 @@ while running:
     if render_first[render]:
         render_first[render] = False
 
+    clock.tick(fps - TEST_ONLY_fps_decrease)
+    cur_fps = clock.get_fps()
+
+    # FPS counter
+    screen.blit(font_pixel_16_bold.render('FPS: ' + str(int(cur_fps)), False, (255, 255, 255), (0, 0, 0)), (width - 44, height - 15))
+
     pg.display.flip()
-    clock.tick(fps)
+
+# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# Save userdata
+    
+with open(path_userdata, 'w') as f:
+    f.write(
+        dumps(
+            {
+                'deaths': deaths,
+                'vol': vol,
+                'vol_sfx': vol_sfx
+            }
+        )
+    )
+    
+# -—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-—-
+# Quit
         
 pg.quit()

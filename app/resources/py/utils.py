@@ -1,6 +1,7 @@
-from os import fspath
+from os import fspath, system
+from os import name as osname
 from pathlib import Path
-from time import time
+from time import time, perf_counter, sleep
 import math
 
 def clamp(n, smallest, largest):
@@ -69,3 +70,9 @@ def extract_map_title(path):
                         return e.strip().replace(e.strip()[0], '')
                     if 'title' in e:
                         use_next = True
+
+def accurate_delay(delay):
+    '''Function to provide accurate time delay in (ms)'''
+    _ = perf_counter() + delay/1000
+    while perf_counter() < _:
+        sleep(0.001)
